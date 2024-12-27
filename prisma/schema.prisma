@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// So user is created with an emai
+// He would be sent an email from that he would be navigated to create password page
+// This would generate the auth for the user
+// After that the user will be able to login
+
+model User {
+  id              Int            @id @default(autoincrement())
+  name            String
+  email           String         @unique
+  password        String
+  userEvents      UserEvent[]
+  timeSlotVotes   TimeSlotVote[]
+  organizedEvents Event[]
+  sentMails       Email[]        @relation("SENDER")
+  receiverMails   Email[]        @relation("RECEIVER")
+}
+
+// Event -> TimeSlots -> Votes
+model Event {
+  id           Int         @id @default(autoincrement())
+  title        String
+  agenda       String
+  description  String
+  organizerId  Int
+  createTime   DateTime    @default(now())
+  updateTime   DateTime    @updatedAt
+  timeSlots    TimeSlot[]
+  participants UserEvent[]
+  organizer    User        @relation(fields: [organizerId], references: [id])
+}
+
+model TimeSlot {
+  id           Int            @id @default(autoincrement())
+  startTime    DateTime
+  endTime      DateTime
+  eventId      Int
+  event        Event          @relation(fields: [eventId], references: [id])
+  timeSlotVote TimeSlotVote[]
+}
+
+model TimeSlotVote {
+  id         Int      @id @default(autoincrement())
+  voterId    Int
+  slotId     Int
+  createTime DateTime @default(now())
+  updateTime DateTime @updatedAt
+  voter      User     @relation(references: [id], fields: [voterId])
+  timeSlot   TimeSlot @relation(references: [id], fields: [slotId])
+
+  @@unique([voterId, slotId])
+}
+
+enum AcceptedRejected {
+  REJECTED
+  ACCEPTED
+  UNKNOWN
+}
+
+model UserEvent {
+  id            Int               @id @default(autoincrement())
+  participantId Int
+  eventId       Int
+  status        AcceptedRejected? @default(UNKNOWN)
+  createTime    DateTime          @default(now())
+  updateTime    DateTime          @updatedAt
+  participant   User              @relation(fields: [participantId], references: [id])
+  event         Event             @relation(fields: [eventId], references: [id])
+
+  @@unique([participantId, eventId])
+}
+
+model Email {
+  id         Int      @id @default(autoincrement())
+  subject    String
+  content    String
+  isOpened   Boolean  @default(false)
+  createTime DateTime @default(now())
+  updateTime DateTime @updatedAt
+  sender     User     @relation("SENDER", fields: [senderId], references: [id])
+  receiver   User     @relation("RECEIVER", fields: [receiverId], references: [id])
+  senderId   Int
+  receiverId Int
+}
